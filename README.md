@@ -23,6 +23,8 @@ Go to the [releases page.](https://github.com/AtomicTyler1/AmongUs-Tracker/relea
 If you already have BepInEx and React, then you can just download the `Journal-AmongUs.dll`.
 Else Download the Journal-AmongUs.zip which contains BepInEx, Reactor and this mod.
 
+You can find the download to reactor [here](https://github.com/NuclearPowered/Reactor/releases)
+
 ## Versioning guide
 
 Currently, this has only been tested on the latest version of among us, it may work on older versions, if it doesnt feel free to make an issue. Please provide a log and the game version when giving an issue.
