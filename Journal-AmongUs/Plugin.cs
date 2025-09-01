@@ -13,6 +13,7 @@ using System.Reflection;
 using BepInEx.Unity.IL2CPP;
 using Reactor.Utilities.Attributes;
 using System.Diagnostics;
+using Reactor.Utilities.Extensions;
 
 namespace SusJournal;
 
@@ -43,9 +44,8 @@ public class SusJournalManager : MonoBehaviour
         public byte ID { get; init; }
         public string Name { get; init; } = null!;
         public Color32 Color { get; init; }
+        public string ColorName { get; init; } = null!;
         public string? Note { get; init; }
-
-        public int ColorId { get; init; }
     }
 
     private class TagData
@@ -128,8 +128,8 @@ public class SusJournalManager : MonoBehaviour
                 ID = playerInfo.PlayerId,
                 Name = playerInfo.PlayerName,
                 Color = playerInfo.Color,
+                ColorName = playerInfo.ColorName,
                 Note = note,
-                ColorId = playerInfo.DefaultOutfit.ColorId
             });
         }
 
@@ -139,13 +139,12 @@ public class SusJournalManager : MonoBehaviour
         {
             PlayerState player = players[i];
             sb.Append("{\"id\":").Append(player.ID)
-                .Append(",\"name\":\"").Append(EscapeJson(player.Name)).Append("\"")
-                .Append(",\"color\":{\"r\":").Append(player.Color.r).Append(",\"g\":").Append(player.Color.g)
-                .Append(",\"b\":").Append(player.Color.b).Append("}")
-                .Append(",\"colorId\":").Append(player.ColorId);
+                .Append(",\"name\":\"").Append(EscapeJson(player.Name)).Append('"')
+                .Append(",\"color\":\"").Append(player.Color.ToHtmlStringRGBA()).Append('"')
+                .Append(",\"colorName\":\"").Append(EscapeJson(player.ColorName)).Append('"');
             if (player.Note != null)
             {
-                sb.Append(",\"note\":\"").Append(EscapeJson(player.Note)).Append("\"");
+                sb.Append(",\"note\":\"").Append(EscapeJson(player.Note)).Append('"');
             }
             sb.Append('}');
             if (i < players.Count - 1)
@@ -163,12 +162,12 @@ public class SusJournalManager : MonoBehaviour
             sb.Append("{\"name\":\"").Append(EscapeJson(role.name)).Append("\", \"teamType\":").Append((int)role.teamType).Append("}");
             if (i < availableRoles.Count - 1)
             {
-                sb.Append(",");
+                sb.Append(',');
             }
         }
-        sb.Append("]");
+        sb.Append(']');
 
-        sb.Append("}");
+        sb.Append('}');
 
         lock (SusJournalPlugin.StaticLock)
         {
