@@ -1,6 +1,6 @@
-# Journal-AmongUs [REACTOR MOD]
+# Journal-AmongUs
 
-## DISCLAIMER: OPENS *localhost:8080*. May break with modded colors, I couldn't get a stable version while trying to do dynamic coloring.
+## DISCLAIMER: OPENS *localhost:8080*.
 
 Do you struggle to keep track of crewmates?
 
@@ -20,10 +20,8 @@ This mod creates a local host on port `:8080`, so if you have any other localhos
 
 Go to the [releases page.](https://github.com/AtomicTyler1/AmongUs-Tracker/releases)
 
-If you already have BepInEx and React, then you can just download the `Journal-AmongUs.dll`.
-Else Download the Journal-AmongUs.zip which contains BepInEx, Reactor and this mod.
-
-You can find the download to reactor [here](https://github.com/NuclearPowered/Reactor/releases)
+If you already have BepInEx, then you can just download the `Journal-AmongUs.dll`.
+Else Download the Journal-AmongUs.zip which contains BepInEx and this mod.
 
 ## Versioning guide
 
