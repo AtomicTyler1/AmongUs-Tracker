@@ -14,6 +14,9 @@ using BepInEx.Unity.IL2CPP;
 using Reactor.Utilities.Attributes;
 using System.Diagnostics;
 using Reactor.Utilities.Extensions;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Il2CppInterop.Runtime;
 
 namespace SusJournal;
 
@@ -41,16 +44,45 @@ public class SusJournalManager : MonoBehaviour
 
     private class PlayerState
     {
+        [JsonPropertyName("id")]
         public byte ID { get; init; }
+
+        [JsonPropertyName("name")]
         public string Name { get; init; } = null!;
-        public Color32 Color { get; init; }
+
+        [JsonPropertyName("color")]
+        public string Color { get; init; } = null!;
+
+        [JsonPropertyName("colorName")]
         public string ColorName { get; init; } = null!;
+
+        [JsonPropertyName("note")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Note { get; init; }
+    }
+
+    private class RoleState
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; init; } = null!;
+        [JsonPropertyName("teamType")]
+        public int TeamType { get; init; }
+    }
+
+    private class GameState
+    {
+        [JsonPropertyName("players")]
+        public List<PlayerState> Players { get; init; } = new();
+
+        [JsonPropertyName("roles")]
+        public List<RoleState> Roles { get; init; } = new();
     }
 
     private class TagData
     {
+        [JsonPropertyName("playerId")]
         public byte PlayerId { get; set; }
+        [JsonPropertyName("tag")]
         public string Tag { get; set; } = "";
     }
 
@@ -69,7 +101,7 @@ public class SusJournalManager : MonoBehaviour
         Process.Start(new ProcessStartInfo("http://localhost:8080") { UseShellExecute = true });
     }
 
-    private void Update()
+    private void FixedUpdate()
     { 
         UpdateGameState();
     }
@@ -93,25 +125,9 @@ public class SusJournalManager : MonoBehaviour
         var players = new List<PlayerState>();
         var allPlayers = GameData.Instance.AllPlayers;
 
-        // Create a list of available roles with their TeamType
-        var availableRoles = new List<object>();
-        if (RoleManager.Instance != null && RoleManager.Instance.AllRoles != null)
-        {
-            foreach (var role in RoleManager.Instance.AllRoles)
-            {
-                // Skip the "Strmiss" role as requested
-                if (role.NiceName.Equals("Strmiss", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                availableRoles.Add(new { name = role.NiceName, teamType = role.TeamType });
-            }
-        }
-
         foreach (var playerInfo in allPlayers)
         {
-            if (playerInfo == null || playerInfo.Disconnected)
+            if (playerInfo == null || playerInfo.Disconnected || playerInfo.IsIncomplete)
             {
                 continue;
             }
@@ -122,56 +138,50 @@ public class SusJournalManager : MonoBehaviour
                 note = existingNote;
             }
 
-            // The missing line of code that adds the player to the list
             players.Add(new PlayerState
             {
                 ID = playerInfo.PlayerId,
                 Name = playerInfo.PlayerName,
-                Color = playerInfo.Color,
+                Color = playerInfo.Color.ToHtmlStringRGBA(),
                 ColorName = playerInfo.ColorName,
                 Note = note,
             });
         }
 
-        var sb = new StringBuilder();
-        sb.Append("{\"players\":[");
-        for (int i = 0; i < players.Count; i++)
+        var roles = new List<RoleState>();
+        if (RoleManager.Instance != null && RoleManager.Instance.AllRoles != null)
         {
-            PlayerState player = players[i];
-            sb.Append("{\"id\":").Append(player.ID)
-                .Append(",\"name\":\"").Append(EscapeJson(player.Name)).Append('"')
-                .Append(",\"color\":\"").Append(player.Color.ToHtmlStringRGBA()).Append('"')
-                .Append(",\"colorName\":\"").Append(EscapeJson(player.ColorName)).Append('"');
-            if (player.Note != null)
+            foreach (var role in RoleManager.Instance.AllRoles)
             {
-                sb.Append(",\"note\":\"").Append(EscapeJson(player.Note)).Append('"');
-            }
-            sb.Append('}');
-            if (i < players.Count - 1)
-            {
-                sb.Append(',');
+                if (role.NiceName.Equals("Strmiss", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                roles.Add(new RoleState
+                {
+                    Name = role.NiceName,
+                    TeamType = (int)role.TeamType
+                });
             }
         }
-        sb.Append(']');
 
-        // Add the roles with their team types to the JSON
-        sb.Append(",\"roles\":[");
-        for (int i = 0; i < availableRoles.Count; i++)
+        var gameState = new GameState
         {
-            var role = (dynamic)availableRoles[i];
-            sb.Append("{\"name\":\"").Append(EscapeJson(role.name)).Append("\", \"teamType\":").Append((int)role.teamType).Append("}");
-            if (i < availableRoles.Count - 1)
-            {
-                sb.Append(',');
-            }
-        }
-        sb.Append(']');
+            Players = players,
+            Roles = roles
+        };
 
-        sb.Append('}');
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+
+        string json = JsonSerializer.Serialize(gameState, jsonOptions);
 
         lock (SusJournalPlugin.StaticLock)
         {
-            SusJournalPlugin.StaticJsonGameState = sb.ToString();
+            SusJournalPlugin.StaticJsonGameState = json;
         }
     }
 
@@ -276,7 +286,6 @@ public class SusJournalManager : MonoBehaviour
                         Logger.LogInfo($"Player {data.PlayerId} tagged as {data.Tag}.");
                     }
                 }
-                UpdateGameState();
                 response.StatusCode = 200;
                 response.StatusDescription = "OK";
             }
@@ -313,33 +322,17 @@ public class SusJournalManager : MonoBehaviour
         response.Close();
     }
 
-    private string EscapeJson(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return string.Empty;
-        return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
-    }
 
     private TagData DeserializeTagData(string json)
     {
-        var data = new TagData();
-        var parts = json.Trim('{', '}').Split(',');
-        foreach (var part in parts)
+        try
         {
-            var kv = part.Split(':');
-            if (kv.Length == 2)
-            {
-                string key = kv[0].Trim().Trim('"');
-                string value = kv[1].Trim().Trim('"');
-                if (key.Equals("playerId", StringComparison.OrdinalIgnoreCase))
-                {
-                    data.PlayerId = byte.Parse(value);
-                }
-                if (key.Equals("tag", StringComparison.OrdinalIgnoreCase))
-                {
-                    data.Tag = value;
-                }
-            }
+            return JsonSerializer.Deserialize<TagData>(json) ?? throw new Exception("Deserialized object is null");
         }
-        return data;
+        catch (Exception ex)
+        {
+            Logger.LogError($"Failed to deserialize JSON: {ex}");
+            throw;
+        }
     }
 }
