@@ -16,7 +16,6 @@ using System.Diagnostics;
 using Reactor.Utilities.Extensions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Il2CppInterop.Runtime;
 
 namespace SusJournal;
 
@@ -41,6 +40,9 @@ public class SusJournalManager : MonoBehaviour
 
     private readonly Dictionary<byte, string> _playerNotes = new();
     private readonly HttpListener _httpListener = new HttpListener();
+
+    private byte[] _cachedHtml = [];
+    private byte[] _cachedPng = [];
 
     private class PlayerState
     {
@@ -189,6 +191,54 @@ public class SusJournalManager : MonoBehaviour
     {
         try
         {
+            var assembly = Assembly.GetExecutingAssembly();
+            var htmlResource = "SusJournal.index.html";
+
+            using (Stream? stream = assembly.GetManifestResourceStream(htmlResource))
+            {
+                if (stream != null)
+                {
+                    using StreamReader reader = new StreamReader(stream);
+                    var html = reader.ReadToEnd();
+                    _cachedHtml = Encoding.UTF8.GetBytes(html);
+                }
+                else
+                {
+                    var availableResources = assembly.GetManifestResourceNames();
+                    Logger.LogError($"Embedded resource '{htmlResource}' not found.");
+                    Logger.LogWarning("Available resources:");
+                    foreach (var res in availableResources)
+                    {
+                        Logger.LogWarning($"- {res}");
+                    }
+
+                    _cachedHtml = "<html><body><h1>Resource not found</h1><p>The embedded resource 'index.html' was not found.</p></body></html>"u8.ToArray();
+                }
+            }
+
+            var pngResource = "SusJournal.Character.png";
+            using (Stream? stream = assembly.GetManifestResourceStream(pngResource))
+            {
+                if (stream != null)
+                {
+                    using MemoryStream ms = new MemoryStream();
+                    stream.CopyTo(ms);
+                    _cachedPng = ms.ToArray();
+                }
+                else
+                {
+                    var availableResources = assembly.GetManifestResourceNames();
+                    Logger.LogError($"Embedded resource '{pngResource}' not found.");
+                    Logger.LogWarning("Available resources:");
+                    foreach (var res in availableResources)
+                    {
+                        Logger.LogWarning($"- {res}");
+                    }
+
+                    _cachedPng = [];
+                }
+            }
+            
             _httpListener.Prefixes.Add("http://localhost:8080/");
             _httpListener.Start();
 
@@ -223,32 +273,8 @@ public class SusJournalManager : MonoBehaviour
         if (request.Url?.AbsolutePath == "/")
         {
             response.ContentType = "text/html";
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = "SusJournal.index.html";
-            string htmlContent = "";
-
-            using (Stream? stream = assembly.GetManifestResourceStream(resourceName))
-            {
-                if (stream != null)
-                {
-                    using StreamReader reader = new StreamReader(stream);
-                    htmlContent = reader.ReadToEnd();
-                }
-                else
-                {
-                    var availableResources = assembly.GetManifestResourceNames();
-                    Logger.LogError($"Embedded resource '{resourceName}' not found.");
-                    Logger.LogWarning("Available resources:");
-                    foreach (var res in availableResources)
-                    {
-                        Logger.LogWarning($"- {res}");
-                    }
-                }
-            }
-
-            var buffer = Encoding.UTF8.GetBytes(htmlContent);
-            response.ContentLength64 = buffer.Length;
-            response.OutputStream.Write(buffer, 0, buffer.Length);
+            response.ContentLength64 = _cachedHtml.Length;
+            response.OutputStream.Write(_cachedHtml, 0, _cachedHtml.Length);
         }
         else if (request.Url?.AbsolutePath == "/api/gamestate")
         {
@@ -299,21 +325,8 @@ public class SusJournalManager : MonoBehaviour
         else if (request.Url?.AbsolutePath == "/Character.png")
         {
             response.ContentType = "image/png";
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = "SusJournal.Character.png";
-            using Stream? stream = assembly.GetManifestResourceStream(resourceName);
-            if (stream != null)
-            {
-                var buffer = new byte[stream.Length];
-                var read = stream.Read(buffer, 0, buffer.Length);
-                response.ContentLength64 = read;
-                response.OutputStream.Write(buffer, 0, read);
-            }
-            else
-            {
-                Logger.LogError($"Embedded resource '{resourceName}' not found.");
-                response.StatusCode = 404;
-            }
+            response.ContentLength64 = _cachedPng.Length;
+            response.OutputStream.Write(_cachedPng, 0, _cachedPng.Length);
         }
         else
         {
