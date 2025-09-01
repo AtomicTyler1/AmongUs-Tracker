@@ -1,0 +1,875 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Among Us Player Tracker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        .space-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            z-index: -2;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite ease-in-out;
+        }
+
+        @keyframes twinkle {
+            0%, 100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .header {
+            text-align: center;
+        }
+
+        .title {
+            font-size: clamp(2rem, 5vw, 2.5rem);
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 3s ease-in-out infinite;
+            margin-bottom: 5px;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .subtitle {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            color: #a0a0a0;
+            font-weight: 300;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-bar {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px 50px 16px 20px;
+            color: white;
+            font-size: 1rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+            .search-bar:focus {
+                outline: none;
+                border-color: rgba(255, 255, 255, 0.3);
+                background: rgba(255, 255, 255, 0.12);
+            }
+
+            .search-bar::placeholder {
+                color: #a0a0a0;
+            }
+
+        .search-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0a0a0;
+            font-size: 1.2rem;
+            pointer-events: none;
+        }
+
+        .global-clear-btn {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            color: #a0a0a0;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 24px;
+            border-radius: 16px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .global-clear-btn:hover {
+                transform: translateY(-2px);
+                border-color: rgba(255, 255, 255, 0.3);
+                color: white;
+                background: rgba(255, 255, 255, 0.12);
+            }
+
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .player-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .player-card.hard-cleared {
+                border-color: #388e3c;
+                background: rgba(56, 142, 60, 0.15);
+                box-shadow: 0 0 20px rgba(56, 142, 60, 0.3);
+            }
+
+            .player-card.soft-cleared {
+                border-color: #81c784;
+                background: rgba(129, 199, 132, 0.15);
+                box-shadow: 0 0 20px rgba(129, 199, 132, 0.3);
+            }
+
+            .player-card.suspicious {
+                border-color: #ffa502;
+                background: rgba(255, 165, 2, 0.15);
+                box-shadow: 0 0 20px rgba(255, 165, 2, 0.3);
+            }
+
+            .player-card.imposter {
+                border-color: #ff4757;
+                background: rgba(255, 71, 87, 0.15);
+                box-shadow: 0 0 20px rgba(255, 71, 87, 0.3);
+            }
+
+            .player-card.dead {
+                border-color: #666;
+                background: rgba(100, 100, 100, 0.15);
+                box-shadow: 0 0 20px rgba(100, 100, 100, 0.3);
+                opacity: 0.7;
+            }
+
+                .player-card.dead .character-avatar {
+                    filter: grayscale(100%);
+                }
+
+            .player-card:hover {
+                transform: translateY(-2px);
+            }
+
+        .character-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #384d6b;
+            background-image: url('http://localhost:8080/Character.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 90%;
+            border: 3px solid #0000006b;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .player-info {
+            flex: 1;
+            z-index: 2;
+            position: relative;
+        }
+
+        .player-name {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .player-color-name {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            font-weight: 300;
+            margin-left: 10px;
+            display: inline-block;
+        }
+
+        .player-status {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            font-weight: 300;
+        }
+
+        .player-card.hard-cleared .player-status {
+            color: #388e3c;
+            font-weight: 600;
+        }
+
+        .player-card.soft-cleared .player-status {
+            color: #81c784;
+            font-weight: 600;
+        }
+
+        .player-card.suspicious .player-status {
+            color: #ffa502;
+            font-weight: 600;
+        }
+
+        .player-card.imposter .player-status {
+            color: #ff4757;
+            font-weight: 600;
+        }
+
+        .player-card.dead .player-status {
+            color: #888;
+            font-weight: 600;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            z-index: 2;
+            position: relative;
+            flex-wrap: wrap;
+        }
+
+        .role-dropdown {
+            position: relative;
+            margin-right: 8px;
+        }
+
+        .role-select {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 35px 10px 16px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 90px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+
+            .role-select:hover {
+                transform: translateY(-1px);
+                border-color: rgba(255, 255, 255, 0.3);
+                background: rgba(255, 255, 255, 0.12);
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .role-select:focus {
+                outline: none;
+                border-color: rgba(255, 255, 255, 0.4);
+                background: rgba(255, 255, 255, 0.15);
+            }
+
+            .role-select option {
+                background: #1a1a1a;
+                color: #ffffff;
+                padding: 10px;
+                font-weight: 600;
+            }
+
+            .role-select.impostor-team {
+                background: rgba(255, 71, 87, 0.2);
+                border-color: #ff4757;
+            }
+
+            .role-select.crewmate-team {
+                background: rgba(71, 151, 255, 0.2);
+                border-color: #4797ff;
+            }
+
+            .role-select.neutral-team {
+                background: rgba(140, 61, 179, 0.2);
+                border-color: #8C3DB3;
+            }
+
+        .role-dropdown::after {
+            content: '▼';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0a0a0;
+            font-size: 0.7rem;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .role-select:hover + .role-dropdown::after,
+        .role-dropdown:hover::after {
+            color: #ffffff;
+        }
+
+        .action-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            min-width: 80px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+            .action-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .action-btn:active {
+                transform: translateY(0);
+            }
+
+        .hard-cleared-btn {
+            background: linear-gradient(135deg, #388e3c, #2e7d32);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+            .hard-cleared-btn:hover {
+                background: linear-gradient(135deg, #2e7d32, #388e3c);
+            }
+
+            .hard-cleared-btn.active {
+                background: #388e3c;
+                box-shadow: 0 0 20px rgba(56, 142, 60, 0.5);
+            }
+
+        .soft-cleared-btn {
+            background: linear-gradient(135deg, #81c784, #66bb6a);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+            .soft-cleared-btn:hover {
+                background: linear-gradient(135deg, #66bb6a, #81c784);
+            }
+
+            .soft-cleared-btn.active {
+                background: #81c784;
+                box-shadow: 0 0 20px rgba(129, 199, 132, 0.5);
+            }
+
+        .suspicious-btn {
+            background: linear-gradient(135deg, #ffa502, #ff9500);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+            .suspicious-btn:hover {
+                background: linear-gradient(135deg, #ff9500, #ffa502);
+            }
+
+            .suspicious-btn.active {
+                background: #ffa502;
+                box-shadow: 0 0 20px rgba(255, 165, 2, 0.5);
+            }
+
+        .imposter-btn {
+            background: linear-gradient(135deg, #ff4757, #ff3838);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+            .imposter-btn:hover {
+                background: linear-gradient(135deg, #ff3838, #ff4757);
+            }
+
+            .imposter-btn.active {
+                background: #ff4757;
+                box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+            }
+
+        .dead-btn {
+            background: linear-gradient(135deg, #666, #444);
+            color: white;
+            border: 2px solid transparent;
+            min-width: 50px;
+            padding: 10px 12px;
+        }
+
+            .dead-btn:hover {
+                background: linear-gradient(135deg, #444, #666);
+            }
+
+            .dead-btn.active {
+                background: #666;
+                box-shadow: 0 0 20px rgba(100, 100, 100, 0.5);
+            }
+
+        .clear-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #a0a0a0;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+            .clear-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+                color: white;
+            }
+
+        .loading-message {
+            text-align: center;
+            font-style: italic;
+            color: #a0a0a0;
+            padding: 20px;
+        }
+
+        .connection-status {
+            text-align: center;
+            font-size: 0.9rem;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+            .connection-status.connected {
+                background-color: rgba(46, 213, 115, 0.2);
+                color: #2ed573;
+            }
+
+            .connection-status.disconnected {
+                background-color: rgba(255, 71, 87, 0.2);
+                color: #ff4757;
+            }
+
+        .particle {
+            position: fixed;
+            font-size: 2rem;
+            pointer-events: none;
+            animation: fadeOutAndRise 1s forwards;
+            z-index: 1000;
+        }
+
+        @keyframes fadeOutAndRise {
+            from {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateY(-50px) scale(1.5);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="space-background"></div>
+    <div class="stars" id="stars"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Among Us Tracker</h1>
+            <p class="subtitle">Keep track of your crewmates (By @atomictyler)</p>
+        </div>
+
+        <div class="connection-status" id="connectionStatus">Connecting...</div>
+
+        <div class="controls">
+            <div class="search-container">
+                <input type="text" class="search-bar" id="search-bar" placeholder="Search players...">
+                <span class="search-icon">🔍</span>
+            </div>
+            <button class="global-clear-btn" id="clear-all-btn">🗑️ Clear All Players</button>
+        </div>
+
+        <div class="player-list" id="player-list">
+            <div class="loading-message" id="loading-message">Loading player data...</div>
+        </div>
+    </div>
+    <script>
+        const playerList = document.getElementById('player-list');
+        const searchBar = document.getElementById('search-bar');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const loadingMessage = document.getElementById('loading-message');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        let gameData = { players: [] };
+
+        const playerColors = [
+            { name: "Red", hex: "#D71E22" },
+            { name: "Blue", hex: "#1D3CE9" },
+            { name: "Green", hex: "#1B913E" },
+            { name: "Pink", hex: "#FF63D4" },
+            { name: "Orange", hex: "#FF8D1C" },
+            { name: "Yellow", hex: "#FFFF67" },
+            { name: "Black", hex: "#4A565E" },
+            { name: "White", hex: "#E9F7FF" },
+            { name: "Purple", hex: "#783DD2" },
+            { name: "Brown", hex: "#80582D" },
+            { name: "Cyan", hex: "#44FFF7" },
+            { name: "Lime", hex: "#5BFE4B" },
+            { name: "Maroon", hex: "#6C2B3D" },
+            { name: "Rose", hex: "#FFD6EC" },
+            { name: "Banana", hex: "#FFFFBE" },
+            { name: "Gray", hex: "#8397A7" },
+            { name: "Tan", hex: "#9F9989" },
+            { name: "Coral", hex: "#EC7578" }
+        ];
+
+        let availableRoles = [];
+        let roleTeamMap = {};
+
+        function updateRoleOptions(newRoles) {
+            availableRoles = ['Role', ...newRoles.map(role => role.name)];
+            // Creates a map to easily look up a role's team type.
+            roleTeamMap = newRoles.reduce((map, obj) => {
+                map[obj.name] = obj.teamType;
+                return map;
+            }, {});
+
+            document.querySelectorAll('.role-select').forEach(select => {
+                const currentValue = select.value;
+                populateRoleDropdown(select);
+                select.value = currentValue;
+                updateRoleDropdownColor(select);
+            });
+        }
+
+        function populateRoleDropdown(selectElement) {
+            selectElement.innerHTML = '';
+            availableRoles.forEach(roleName => {
+                const option = document.createElement('option');
+                option.value = roleName === 'Role' ? '' : roleName;
+                option.textContent = roleName;
+                if (roleName === 'Role') {
+                    option.disabled = true;
+                    option.selected = true;
+                }
+                selectElement.appendChild(option);
+            });
+        }
+
+        function updateRoleDropdownColor(selectElement) {
+            const selectedRole = selectElement.value;
+            const teamType = roleTeamMap[selectedRole];
+
+            selectElement.classList.remove('impostor-team', 'crewmate-team', 'neutral-team');
+
+            if (selectedRole !== '') {
+                if (teamType === 0) {
+                    selectElement.classList.add('crewmate-team');
+                } else if (teamType === 1) {
+                    selectElement.classList.add('impostor-team');
+                } else {
+                    selectElement.classList.add('neutral-team');
+                }
+            }
+        }
+
+        function createStars() {
+            const starCount = 100;
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.width = star.style.height = `${Math.random() * 2 + 1}px`;
+                starsContainer.appendChild(star);
+            }
+        }
+        createStars();
+
+        async function clearAllPlayers() {
+            const cards = document.querySelectorAll('.player-card');
+            for (const card of cards) {
+                const playerId = parseInt(card.dataset.playerId);
+                await updatePlayerNote(playerId, "Clear");
+            }
+            await fetchGameData();
+        }
+
+        async function fetchGameData() {
+            try {
+                const response = await fetch('http://localhost:8080/api/gamestate');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const newGameData = await response.json();
+
+                if (newGameData.roles) {
+                    updateRoleOptions(newGameData.roles);
+                }
+
+                const oldPlayerIds = new Set(gameData.players.map(p => p.id));
+                gameData = newGameData;
+
+                renderPlayerCards(oldPlayerIds);
+
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.className = 'connection-status connected';
+            } catch (error) {
+                console.error('Could not fetch game data:', error);
+                connectionStatus.textContent = 'Disconnected';
+                connectionStatus.className = 'connection-status disconnected';
+            }
+        }
+
+        function renderPlayerCards(oldPlayerIds) {
+            const newPlayerIds = new Set(gameData.players.map(p => p.id));
+            loadingMessage.style.display = 'none';
+
+            // Removes player cards for players who are no longer in the game.
+            const cardsToRemove = document.querySelectorAll('.player-card');
+            cardsToRemove.forEach(card => {
+                const playerId = parseInt(card.dataset.playerId);
+                if (!newPlayerIds.has(playerId)) {
+                    card.remove();
+                }
+            });
+
+            if (gameData.players.length === 0) {
+                loadingMessage.textContent = 'No players in the game yet.';
+                loadingMessage.style.display = 'block';
+            }
+
+            gameData.players.forEach(player => {
+                let card = document.querySelector(`.player-card[data-player-id="${player.id}"]`);
+
+                if (card) {
+                    updatePlayerCard(card, player);
+                } else {
+                    card = createPlayerCard(player);
+                    playerList.appendChild(card);
+                }
+            });
+
+            filterPlayers();
+        }
+
+        function updatePlayerCard(card, player) {
+            const playerNameEl = card.querySelector('.player-name');
+            const playerColorNameEl = card.querySelector('.player-color-name');
+            const playerColor = playerColors[player.colorId];
+
+            playerNameEl.innerHTML = `${player.name} <span class="player-color-name">${playerColor.name}</span>`;
+
+            card.querySelector('.character-avatar').style.backgroundColor = playerColor.hex;
+
+            const statusText = player.note || 'Unknown';
+            card.querySelector('.player-status').textContent = statusText;
+
+            card.className = 'player-card';
+
+            if (player.note) {
+                // Converts the note (e.g., "Hard Cleared") into a CSS class name (e.g., "hard-cleared").
+                const statusClass = player.note.toLowerCase().replace(/\s/g, '-');
+                card.classList.add(statusClass);
+            }
+
+            card.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.tag === player.note) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function createPlayerCard(player) {
+            const card = document.createElement('li');
+            card.classList.add('player-card');
+            card.dataset.playerId = player.id;
+            card.dataset.playerName = player.name;
+
+            let statusText = player.note || 'Unknown';
+            let statusClass = player.note ? player.note.toLowerCase().replace(/\s/g, '-') : '';
+
+            if (statusClass) {
+                card.classList.add(statusClass);
+            }
+
+            const playerColor = playerColors[player.colorId];
+
+            card.innerHTML = `
+                    <div class="character-avatar" style="background-color: ${playerColor.hex};"></div>
+                    <div class="player-info">
+                        <div class="player-name">
+                            ${player.name}
+                            <span class="player-color-name">${playerColor.name}</span>
+                        </div>
+                        <div class="player-status">${statusText}</div>
+                    </div>
+                    <div class="actions">
+                        <div class="role-dropdown">
+                            <select class="role-select" data-player-id="${player.id}">
+                            </select>
+                        </div>
+                        <button class="action-btn hard-cleared-btn" data-tag="Hard Cleared">Hard Cleared</button>
+                        <button class="action-btn soft-cleared-btn" data-tag="Soft Cleared">Soft Cleared</button>
+                        <button class="action-btn suspicious-btn" data-tag="Suspicious">Suspicious</button>
+                        <button class="action-btn imposter-btn" data-tag="Imposter">Imposter</button>
+                        <button class="action-btn dead-btn" data-tag="Dead">Dead</button>
+                        <button class="action-btn clear-btn" data-tag="Clear">Clear</button>
+                    </div>
+                `;
+
+            const roleSelect = card.querySelector('.role-select');
+            populateRoleDropdown(roleSelect);
+
+            roleSelect.addEventListener('change', (e) => {
+                updateRoleDropdownColor(e.target);
+                const selectedRole = e.target.value;
+                const playerId = e.target.dataset.playerId;
+                console.log(`Player ${playerId} role changed to: ${selectedRole}`);
+            });
+
+            if (player.note) {
+                const tag = player.note;
+                const buttons = card.querySelectorAll('.action-btn');
+                buttons.forEach(btn => {
+                    if (btn.dataset.tag === tag) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+
+            card.querySelectorAll('.action-btn').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const tag = button.dataset.tag;
+                    await updatePlayerNote(player.id, tag);
+                });
+            });
+
+            return card;
+        }
+
+        async function updatePlayerNote(playerId, tag) {
+            try {
+                const response = await fetch('http://localhost:8080/api/tagplayer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ playerId: playerId, tag: tag })
+                });
+
+                if (response.ok) {
+                    // Re-fetches the game data after a successful update to ensure the UI is in sync.
+                    await fetchGameData();
+                } else {
+                    console.error('Failed to update player note');
+                }
+            } catch (error) {
+                console.error('Error updating player note:', error);
+            }
+        }
+
+        function filterPlayers() {
+            const searchTerm = searchBar.value.toLowerCase();
+            const cards = document.querySelectorAll('.player-card');
+            cards.forEach(card => {
+                const playerName = card.dataset.playerName.toLowerCase();
+                const playerColorName = card.querySelector('.player-color-name').textContent.toLowerCase();
+                const playerStatus = card.querySelector('.player-status').textContent.toLowerCase();
+
+                if (playerName.includes(searchTerm) || playerColorName.includes(searchTerm) || playerStatus.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        searchBar.addEventListener('input', filterPlayers);
+
+        clearAllBtn.addEventListener('click', async () => {
+            await clearAllPlayers();
+        });
+
+        fetchGameData();
+
+        // Sets up a polling mechanism to regularly check for game state updates.
+        setInterval(fetchGameData, 1000);
+
+    </script>
+</body>
+</html>
