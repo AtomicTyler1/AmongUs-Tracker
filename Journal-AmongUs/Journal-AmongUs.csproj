@@ -23,4 +23,7 @@
     </PackageReference>
   </ItemGroup>
 
+  <Target Name="Copy" AfterTargets="Build" Condition="'$(AmongUs)' != '' And '$(Platform)' == 'AnyCPU'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(AmongUs)/BepInEx/plugins/" />
+  </Target>
 </Project>

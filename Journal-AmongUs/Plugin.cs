@@ -21,8 +21,8 @@ namespace SusJournal;
 [BepInDependency(ReactorPlugin.Id)]
 public class SusJournalPlugin : BasePlugin
 {
-    public static object staticLock = new object();
-    public static string staticJsonGameState = "{}";
+    public static readonly object StaticLock = new object();
+    public static string StaticJsonGameState = "{}";
 
     public override void Load()
     {
@@ -33,25 +33,25 @@ public class SusJournalPlugin : BasePlugin
 [RegisterInIl2Cpp]
 public class SusJournalManager : MonoBehaviour
 {
-    public static ManualLogSource Logger;
+    public static ManualLogSource Logger { get; private set; } = null!;
 
-    private readonly Dictionary<byte, string> playerNotes = new();
+    private readonly Dictionary<byte, string> _playerNotes = new();
     private readonly HttpListener _httpListener = new HttpListener();
 
     private class PlayerState
     {
-        public byte id { get; set; }
-        public string name { get; set; }
-        public Color32 color { get; set; }
-        public string note { get; set; }
+        public byte ID { get; init; }
+        public string Name { get; init; } = null!;
+        public Color32 Color { get; init; }
+        public string? Note { get; init; }
 
-        public int colorId { get; set; }
+        public int ColorId { get; init; }
     }
 
     private class TagData
     {
-        public byte playerId { get; set; }
-        public string tag { get; set; }
+        public byte PlayerId { get; set; }
+        public string Tag { get; set; } = "";
     }
 
     public SusJournalManager(IntPtr ptr) : base(ptr) { }
@@ -76,16 +76,16 @@ public class SusJournalManager : MonoBehaviour
 
     public void UpdateGameState()
     {
-        if ((GameData.Instance == null || GameData.Instance.AllPlayers == null || GameData.Instance.AllPlayers.Count == 0) && playerNotes.Count > 0)
+        if ((GameData.Instance == null || GameData.Instance.AllPlayers == null || GameData.Instance.AllPlayers.Count == 0) && _playerNotes.Count > 0)
         {
-            playerNotes.Clear();
+            _playerNotes.Clear();
         }
 
         if (GameData.Instance == null || GameData.Instance.AllPlayers == null || GameData.Instance.AllPlayers.Count == 0)
         {
-            lock (SusJournalPlugin.staticLock)
+            lock (SusJournalPlugin.StaticLock)
             {
-                SusJournalPlugin.staticJsonGameState = "{\"players\":[], \"roles\": []}";
+                SusJournalPlugin.StaticJsonGameState = "{\"players\":[], \"roles\": []}";
             }
             return;
         }
@@ -109,15 +109,15 @@ public class SusJournalManager : MonoBehaviour
             }
         }
 
-        foreach (var playerControl in allPlayers)
+        foreach (var playerInfo in allPlayers)
         {
-            if (playerControl == null || playerControl.Disconnected)
+            if (playerInfo == null || playerInfo.Disconnected)
             {
                 continue;
             }
 
-            string note = null;
-            if (playerNotes.TryGetValue(playerControl.PlayerId, out string existingNote))
+            string? note = null;
+            if (_playerNotes.TryGetValue(playerInfo.PlayerId, out string? existingNote))
             {
                 note = existingNote;
             }
@@ -125,11 +125,11 @@ public class SusJournalManager : MonoBehaviour
             // The missing line of code that adds the player to the list
             players.Add(new PlayerState
             {
-                id = playerControl.PlayerId,
-                name = playerControl.PlayerName,
-                color = (Color32)playerControl.Color,
-                note = note,
-                colorId = playerControl.DefaultOutfit.ColorId
+                ID = playerInfo.PlayerId,
+                Name = playerInfo.PlayerName,
+                Color = playerInfo.Color,
+                Note = note,
+                ColorId = playerInfo.DefaultOutfit.ColorId
             });
         }
 
@@ -138,22 +138,22 @@ public class SusJournalManager : MonoBehaviour
         for (int i = 0; i < players.Count; i++)
         {
             PlayerState player = players[i];
-            sb.Append("{\"id\":").Append(player.id)
-                .Append(",\"name\":\"").Append(EscapeJson(player.name)).Append("\"")
-                .Append(",\"color\":{\"r\":").Append(player.color.r).Append(",\"g\":").Append(player.color.g)
-                .Append(",\"b\":").Append(player.color.b).Append("}")
-                .Append(",\"colorId\":").Append(player.colorId);
-            if (player.note != null)
+            sb.Append("{\"id\":").Append(player.ID)
+                .Append(",\"name\":\"").Append(EscapeJson(player.Name)).Append("\"")
+                .Append(",\"color\":{\"r\":").Append(player.Color.r).Append(",\"g\":").Append(player.Color.g)
+                .Append(",\"b\":").Append(player.Color.b).Append("}")
+                .Append(",\"colorId\":").Append(player.ColorId);
+            if (player.Note != null)
             {
-                sb.Append(",\"note\":\"").Append(EscapeJson(player.note)).Append("\"");
+                sb.Append(",\"note\":\"").Append(EscapeJson(player.Note)).Append("\"");
             }
-            sb.Append("}");
+            sb.Append('}');
             if (i < players.Count - 1)
             {
-                sb.Append(",");
+                sb.Append(',');
             }
         }
-        sb.Append("]");
+        sb.Append(']');
 
         // Add the roles with their team types to the JSON
         sb.Append(",\"roles\":[");
@@ -170,9 +170,9 @@ public class SusJournalManager : MonoBehaviour
 
         sb.Append("}");
 
-        lock (SusJournalPlugin.staticLock)
+        lock (SusJournalPlugin.StaticLock)
         {
-            SusJournalPlugin.staticJsonGameState = sb.ToString();
+            SusJournalPlugin.StaticJsonGameState = sb.ToString();
         }
     }
 
@@ -211,21 +211,19 @@ public class SusJournalManager : MonoBehaviour
             return;
         }
 
-        if (request.Url.AbsolutePath == "/")
+        if (request.Url?.AbsolutePath == "/")
         {
             response.ContentType = "text/html";
             var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = "Journal_AmongUs.index.html";
+            var resourceName = "SusJournal.index.html";
             string htmlContent = "";
 
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            using (Stream? stream = assembly.GetManifestResourceStream(resourceName))
             {
                 if (stream != null)
                 {
-                    using (StreamReader reader = new StreamReader(stream))
-                    {
-                        htmlContent = reader.ReadToEnd();
-                    }
+                    using StreamReader reader = new StreamReader(stream);
+                    htmlContent = reader.ReadToEnd();
                 }
                 else
                 {
@@ -243,19 +241,19 @@ public class SusJournalManager : MonoBehaviour
             response.ContentLength64 = buffer.Length;
             response.OutputStream.Write(buffer, 0, buffer.Length);
         }
-        else if (request.Url.AbsolutePath == "/api/gamestate")
+        else if (request.Url?.AbsolutePath == "/api/gamestate")
         {
             response.ContentType = "application/json";
             string json;
-            lock (SusJournalPlugin.staticLock)
+            lock (SusJournalPlugin.StaticLock)
             {
-                json = SusJournalPlugin.staticJsonGameState;
+                json = SusJournalPlugin.StaticJsonGameState;
             }
             var buffer = Encoding.UTF8.GetBytes(json);
             response.ContentLength64 = buffer.Length;
             response.OutputStream.Write(buffer, 0, buffer.Length);
         }
-        else if (request.Url.AbsolutePath == "/api/tagplayer" && request.HttpMethod == "POST")
+        else if (request.Url?.AbsolutePath == "/api/tagplayer" && request.HttpMethod == "POST")
         {
             try
             {
@@ -266,17 +264,17 @@ public class SusJournalManager : MonoBehaviour
                 }
                 var data = DeserializeTagData(jsonBody);
 
-                lock (SusJournalPlugin.staticLock)
+                lock (SusJournalPlugin.StaticLock)
                 {
-                    if (data.tag.Equals("Clear", StringComparison.OrdinalIgnoreCase))
+                    if (data.Tag.Equals("Clear", StringComparison.OrdinalIgnoreCase))
                     {
-                        playerNotes.Remove(data.playerId);
-                        Logger.LogInfo($"Player {data.playerId} note cleared.");
+                        _playerNotes.Remove(data.PlayerId);
+                        Logger.LogInfo($"Player {data.PlayerId} note cleared.");
                     }
                     else
                     {
-                        playerNotes[data.playerId] = data.tag;
-                        Logger.LogInfo($"Player {data.playerId} tagged as {data.tag}.");
+                        _playerNotes[data.PlayerId] = data.Tag;
+                        Logger.LogInfo($"Player {data.PlayerId} tagged as {data.Tag}.");
                     }
                 }
                 UpdateGameState();
@@ -290,25 +288,23 @@ public class SusJournalManager : MonoBehaviour
                 response.StatusDescription = "Internal Server Error";
             }
         }
-        else if (request.Url.AbsolutePath == "/Character.png")
+        else if (request.Url?.AbsolutePath == "/Character.png")
         {
             response.ContentType = "image/png";
             var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = "Journal_AmongUs.Character.png";
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            var resourceName = "SusJournal.Character.png";
+            using Stream? stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream != null)
             {
-                if (stream != null)
-                {
-                    var buffer = new byte[stream.Length];
-                    stream.Read(buffer, 0, buffer.Length);
-                    response.ContentLength64 = buffer.Length;
-                    response.OutputStream.Write(buffer, 0, buffer.Length);
-                }
-                else
-                {
-                    Logger.LogError($"Embedded resource '{resourceName}' not found.");
-                    response.StatusCode = 404;
-                }
+                var buffer = new byte[stream.Length];
+                var read = stream.Read(buffer, 0, buffer.Length);
+                response.ContentLength64 = read;
+                response.OutputStream.Write(buffer, 0, read);
+            }
+            else
+            {
+                Logger.LogError($"Embedded resource '{resourceName}' not found.");
+                response.StatusCode = 404;
             }
         }
         else
@@ -337,11 +333,11 @@ public class SusJournalManager : MonoBehaviour
                 string value = kv[1].Trim().Trim('"');
                 if (key.Equals("playerId", StringComparison.OrdinalIgnoreCase))
                 {
-                    data.playerId = byte.Parse(value);
+                    data.PlayerId = byte.Parse(value);
                 }
                 if (key.Equals("tag", StringComparison.OrdinalIgnoreCase))
                 {
-                    data.tag = value;
+                    data.Tag = value;
                 }
             }
         }
