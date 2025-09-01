@@ -24,12 +24,9 @@ namespace SusJournal;
 [BepInDependency(ReactorPlugin.Id)]
 public class SusJournalPlugin : BasePlugin
 {
-    public static readonly object StaticLock = new object();
-    public static string StaticJsonGameState = "{}";
-
     public override void Load()
     {
-        this.AddComponent<SusJournalManager>();
+        AddComponent<SusJournalManager>();
     }
 }
 
@@ -38,12 +35,17 @@ public class SusJournalManager : MonoBehaviour
 {
     public static ManualLogSource Logger { get; private set; } = null!;
 
+    private static object StaticLock { get; } = new();
+
+    private static string _gameStateJson = "";
+
     private readonly Dictionary<byte, string> _playerNotes = new();
-    private readonly HttpListener _httpListener = new HttpListener();
+    private readonly HttpListener _httpListener = new();
 
     private byte[] _cachedHtml = [];
     private byte[] _cachedPng = [];
 
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
     private class PlayerState
     {
         [JsonPropertyName("id")]
@@ -74,19 +76,20 @@ public class SusJournalManager : MonoBehaviour
     private class GameState
     {
         [JsonPropertyName("players")]
-        public List<PlayerState> Players { get; init; } = new();
+        public List<PlayerState> Players { get; init; } = [];
 
         [JsonPropertyName("roles")]
-        public List<RoleState> Roles { get; init; } = new();
+        public List<RoleState> Roles { get; init; } = [];
     }
 
     private class TagData
     {
         [JsonPropertyName("playerId")]
-        public byte PlayerId { get; set; }
+        public byte PlayerId { get; init; }
         [JsonPropertyName("tag")]
-        public string Tag { get; set; } = "";
+        public string Tag { get; init; } = "";
     }
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
 
     public SusJournalManager(IntPtr ptr) : base(ptr) { }
 
@@ -117,9 +120,9 @@ public class SusJournalManager : MonoBehaviour
 
         if (GameData.Instance == null || GameData.Instance.AllPlayers == null || GameData.Instance.AllPlayers.Count == 0)
         {
-            lock (SusJournalPlugin.StaticLock)
+            lock (StaticLock)
             {
-                SusJournalPlugin.StaticJsonGameState = "{\"players\":[], \"roles\": []}";
+                _gameStateJson = """{"players":[],"roles":[]}""";
             }
             return;
         }
@@ -167,23 +170,20 @@ public class SusJournalManager : MonoBehaviour
             }
         }
 
-        var gameState = new GameState
+        lock (StaticLock)
         {
-            Players = players,
-            Roles = roles
-        };
+            var gameState = new GameState
+            {
+                Players = players,
+                Roles = roles
+            };
 
-        var jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-
-        string json = JsonSerializer.Serialize(gameState, jsonOptions);
-
-        lock (SusJournalPlugin.StaticLock)
-        {
-            SusJournalPlugin.StaticJsonGameState = json;
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+            _gameStateJson = JsonSerializer.Serialize(gameState, jsonOptions);
         }
     }
 
@@ -280,9 +280,9 @@ public class SusJournalManager : MonoBehaviour
         {
             response.ContentType = "application/json";
             string json;
-            lock (SusJournalPlugin.StaticLock)
+            lock (StaticLock)
             {
-                json = SusJournalPlugin.StaticJsonGameState;
+                json = _gameStateJson;
             }
             var buffer = Encoding.UTF8.GetBytes(json);
             response.ContentLength64 = buffer.Length;
@@ -299,7 +299,7 @@ public class SusJournalManager : MonoBehaviour
                 }
                 var data = DeserializeTagData(jsonBody);
 
-                lock (SusJournalPlugin.StaticLock)
+                lock (StaticLock)
                 {
                     if (data.Tag.Equals("Clear", StringComparison.OrdinalIgnoreCase))
                     {
