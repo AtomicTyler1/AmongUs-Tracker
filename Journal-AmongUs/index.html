@@ -574,27 +574,6 @@
 
         let gameData = { players: [] };
 
-        const playerColors = [
-            { name: "Red", hex: "#D71E22" },
-            { name: "Blue", hex: "#1D3CE9" },
-            { name: "Green", hex: "#1B913E" },
-            { name: "Pink", hex: "#FF63D4" },
-            { name: "Orange", hex: "#FF8D1C" },
-            { name: "Yellow", hex: "#FFFF67" },
-            { name: "Black", hex: "#4A565E" },
-            { name: "White", hex: "#E9F7FF" },
-            { name: "Purple", hex: "#783DD2" },
-            { name: "Brown", hex: "#80582D" },
-            { name: "Cyan", hex: "#44FFF7" },
-            { name: "Lime", hex: "#5BFE4B" },
-            { name: "Maroon", hex: "#6C2B3D" },
-            { name: "Rose", hex: "#FFD6EC" },
-            { name: "Banana", hex: "#FFFFBE" },
-            { name: "Gray", hex: "#8397A7" },
-            { name: "Tan", hex: "#9F9989" },
-            { name: "Coral", hex: "#EC7578" }
-        ];
-
         let availableRoles = [];
         let roleTeamMap = {};
 
@@ -729,11 +708,10 @@
         function updatePlayerCard(card, player) {
             const playerNameEl = card.querySelector('.player-name');
             const playerColorNameEl = card.querySelector('.player-color-name');
-            const playerColor = playerColors[player.colorId];
 
-            playerNameEl.innerHTML = `${player.name} <span class="player-color-name">${playerColor.name}</span>`;
+            playerNameEl.innerHTML = `${player.name} <span class="player-color-name">${player.colorName}</span>`;
 
-            card.querySelector('.character-avatar').style.backgroundColor = playerColor.hex;
+            card.querySelector('.character-avatar').style.backgroundColor = "#"+player.color;
 
             const statusText = player.note || 'Unknown';
             card.querySelector('.player-status').textContent = statusText;
@@ -767,14 +745,12 @@
                 card.classList.add(statusClass);
             }
 
-            const playerColor = playerColors[player.colorId];
-
             card.innerHTML = `
-                    <div class="character-avatar" style="background-color: ${playerColor.hex};"></div>
+                    <div class="character-avatar" style="background-color: #${player.color};"></div>
                     <div class="player-info">
                         <div class="player-name">
                             ${player.name}
-                            <span class="player-color-name">${playerColor.name}</span>
+                            <span class="player-color-name">${player.colorName}</span>
                         </div>
                         <div class="player-status">${statusText}</div>
                     </div>
@@ -868,7 +844,7 @@
         fetchGameData();
 
         // Sets up a polling mechanism to regularly check for game state updates.
-        setInterval(fetchGameData, 1000);
+        setInterval(fetchGameData, 200);
 
     </script>
 </body>
