@@ -7,13 +7,10 @@ using System.Threading.Tasks;
 using BepInEx;
 using BepInEx.Logging;
 using UnityEngine;
-using Reactor;
 using System.IO;
 using System.Reflection;
 using BepInEx.Unity.IL2CPP;
-using Reactor.Utilities.Attributes;
 using System.Diagnostics;
-using Reactor.Utilities.Extensions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -21,7 +18,6 @@ namespace SusJournal;
 
 [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
 [BepInProcess("Among Us.exe")]
-[BepInDependency(ReactorPlugin.Id)]
 public class SusJournalPlugin : BasePlugin
 {
     public override void Load()
@@ -30,7 +26,6 @@ public class SusJournalPlugin : BasePlugin
     }
 }
 
-[RegisterInIl2Cpp]
 public class SusJournalManager : MonoBehaviour
 {
     public static ManualLogSource Logger { get; private set; } = null!;
@@ -147,7 +142,7 @@ public class SusJournalManager : MonoBehaviour
             {
                 ID = playerInfo.PlayerId,
                 Name = playerInfo.PlayerName,
-                Color = playerInfo.Color.ToHtmlStringRGBA(),
+                Color = ColorUtility.ToHtmlStringRGBA(playerInfo.Color),
                 ColorName = playerInfo.ColorName,
                 Note = note,
             });
