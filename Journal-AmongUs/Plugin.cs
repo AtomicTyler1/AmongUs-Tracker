@@ -13,6 +13,8 @@ using BepInEx.Unity.IL2CPP;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AmongUs.Data.Settings;
+using AmongUs.AnimationTestScene;
 
 namespace SusJournal;
 
@@ -136,6 +138,20 @@ public class SusJournalManager : MonoBehaviour
             if (_playerNotes.TryGetValue(playerInfo.PlayerId, out string? existingNote))
             {
                 note = existingNote;
+            }
+
+            if (MeetingHud.Instance != null && playerInfo.IsDead || MeetingHud.Instance != null && MeetingHud.Instance.CurrentState == MeetingHud.VoteStates.Proceeding && MeetingHud.Instance.exiledPlayer == playerInfo)
+            {
+                if (GameOptionsManager.Instance.currentNormalGameOptions.ConfirmImpostor && playerInfo.Role.TeamType == RoleTeamTypes.Impostor)
+                {
+                    _playerNotes[playerInfo.PlayerId] = "Imposter";
+                    note = "Imposter";
+                }
+                else
+                {
+                    _playerNotes[playerInfo.PlayerId] = "Dead";
+                    note = "Dead";
+                }
             }
 
             players.Add(new PlayerState
